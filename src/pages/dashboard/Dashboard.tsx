@@ -1,11 +1,28 @@
-import { useNavigate } from 'react-router-dom'
-import { Pencil } from 'lucide-react'
-import { useAuth } from '../../hooks/useAuth'
-import { Button } from '../../components/ui/Button'
+import { useNavigate } from "react-router-dom";
+import { Pencil } from "lucide-react";
+import { useAuth } from "../../hooks/useAuth";
+import { Button } from "../../components/ui/Button";
+
+const PILLARS = [
+  {
+    label: "Artist Page",
+    desc: "Your public presence",
+    icon: "◈",
+    to: "/page",
+  },
+  { label: "EPK", desc: "Your press kit", icon: "◉", to: "/epk" },
+  { label: "Analytics", desc: "Your numbers", icon: "◎", to: "/analytics" },
+  {
+    label: "Opportunities",
+    desc: "What's out there",
+    icon: "◇",
+    to: "/analytics",
+  },
+] as const;
 
 export function Dashboard() {
-  const navigate = useNavigate()
-  const { profile, signOut } = useAuth()
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
 
   return (
     <div className="min-h-screen bg-[var(--color-black)] flex flex-col">
@@ -18,7 +35,7 @@ export function Dashboard() {
               {profile?.profile_photo_url ? (
                 <img
                   src={profile.profile_photo_url}
-                  alt={profile.artist_name ?? 'Artist'}
+                  alt={profile.artist_name ?? "Artist"}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -34,10 +51,10 @@ export function Dashboard() {
             </p>
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold text-[var(--color-text-primary)] leading-tight">
-                {profile?.artist_name ?? 'Artist'}
+                {profile?.artist_name ?? "Artist"}
               </h1>
               <button
-                onClick={() => navigate('/profile/edit')}
+                onClick={() => navigate("/profile/edit")}
                 className="p-1 rounded-md text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)] transition-all"
                 aria-label="Edit profile"
               >
@@ -46,7 +63,7 @@ export function Dashboard() {
             </div>
             {profile?.genre && profile.genre.length > 0 && (
               <p className="text-xs text-[var(--color-text-muted)] mt-0.5">
-                {profile.genre.join(' · ')}
+                {profile.genre.join(" · ")}
               </p>
             )}
           </div>
@@ -67,8 +84,8 @@ export function Dashboard() {
             </p>
           </div>
           <p className="text-[var(--color-text-secondary)] text-sm leading-relaxed">
-            Your daily briefing is being set up. Connect your Spotify account and
-            we'll have your first briefing ready tomorrow morning.
+            Your daily briefing is being set up. Connect your Spotify account
+            and we'll have your first briefing ready tomorrow morning.
           </p>
           <Button variant="secondary" size="sm" className="self-start">
             Connect Spotify
@@ -77,14 +94,10 @@ export function Dashboard() {
 
         {/* ── Pillars grid ── */}
         <div className="grid grid-cols-2 gap-3">
-          {[
-            { label: 'Artist Page', desc: 'Your public presence', icon: '◈' },
-            { label: 'EPK',         desc: 'Your press kit',       icon: '◉' },
-            { label: 'Analytics',   desc: 'Your numbers',         icon: '◎' },
-            { label: 'Opportunities', desc: "What's out there",   icon: '◇' },
-          ].map((item) => (
+          {PILLARS.map((item) => (
             <div
               key={item.label}
+              onClick={() => navigate(item.to)}
               className="rounded-xl bg-[var(--color-surface)] border border-[var(--color-border)] p-4 flex flex-col gap-2 cursor-pointer hover:border-[var(--color-accent)] active:scale-[0.98] transition-all"
             >
               <span className="text-base text-[var(--color-accent)] font-light">
@@ -103,5 +116,5 @@ export function Dashboard() {
         </div>
       </div>
     </div>
-  )
+  );
 }

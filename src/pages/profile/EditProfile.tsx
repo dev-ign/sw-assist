@@ -1,36 +1,42 @@
-import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Camera, Check, Plus, Trash2 } from 'lucide-react'
-import { supabase } from '../../lib/supabase'
-import { useAuth } from '../../hooks/useAuth'
-import { Button } from '../../components/ui/Button'
-import { Input } from '../../components/ui/Input'
-import { Textarea } from '../../components/ui/Textarea'
-import { GENRES, PLATFORM_PRESETS, PRIMARY_GOALS, CAREER_STAGES, RELEASE_TIMELINES } from '../../lib/constants'
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Camera, Check, Plus, Trash2 } from "lucide-react";
+import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../hooks/useAuth";
+import { Button } from "../../components/ui/Button";
+import { Input } from "../../components/ui/Input";
+import { Textarea } from "../../components/ui/Textarea";
+import {
+  GENRES,
+  PLATFORM_PRESETS,
+  PRIMARY_GOALS,
+  CAREER_STAGES,
+  RELEASE_TIMELINES,
+} from "../../lib/constants";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface LinkRow {
-  id?: string            // existing DB id — undefined for new links
-  platform: string
-  label: string
-  url: string
+  id?: string; // existing DB id — undefined for new links
+  platform: string;
+  label: string;
+  url: string;
 }
 
 interface FormState {
-  artist_name: string
-  real_name: string
-  location: string
-  genre: string[]
-  bio: string
-  profile_photo_url: string
-  links: LinkRow[]
+  artist_name: string;
+  real_name: string;
+  location: string;
+  genre: string[];
+  bio: string;
+  profile_photo_url: string;
+  links: LinkRow[];
   goals: {
-    primary_goal: string
-    career_stage: string
-    release_timeline: string
-    monthly_listeners_target: string
-  }
+    primary_goal: string;
+    career_stage: string;
+    release_timeline: string;
+    monthly_listeners_target: string;
+  };
 }
 
 // ─── Section label ─────────────────────────────────────────────────────────────
@@ -40,65 +46,65 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
     <p className="text-[10px] font-semibold tracking-[0.2em] uppercase text-[var(--color-text-muted)] mb-4">
       {children}
     </p>
-  )
+  );
 }
 
 // ─── Divider ──────────────────────────────────────────────────────────────────
 
 function Divider() {
-  return <div className="h-px bg-[var(--color-border-subtle)] my-8" />
+  return <div className="h-px bg-[var(--color-border-subtle)] my-8" />;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function EditProfile() {
-  const navigate = useNavigate()
-  const { user, profile, refreshProfile } = useAuth()
-  const fileRef = useRef<HTMLInputElement>(null)
+  const navigate = useNavigate();
+  const { user, profile, refreshProfile } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState<FormState>({
-    artist_name: '',
-    real_name: '',
-    location: '',
+    artist_name: "",
+    real_name: "",
+    location: "",
     genre: [],
-    bio: '',
-    profile_photo_url: '',
+    bio: "",
+    profile_photo_url: "",
     links: [],
     goals: {
-      primary_goal: '',
-      career_stage: '',
-      release_timeline: '',
-      monthly_listeners_target: '',
+      primary_goal: "",
+      career_stage: "",
+      release_timeline: "",
+      monthly_listeners_target: "",
     },
-  })
+  });
 
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [uploadingPhoto, setUploadingPhoto] = useState(false)
-  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   // ── Load existing data ─────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!user || !profile) return
+    if (!user || !profile) return;
 
     async function load() {
       const { data: links } = await supabase
-        .from('links')
-        .select('*')
-        .eq('profile_id', user!.id)
-        .order('display_order')
+        .from("links")
+        .select("*")
+        .eq("profile_id", user!.id)
+        .order("display_order");
 
-      const rawGoals = (profile!.goals ?? {}) as Record<string, string>
+      const rawGoals = (profile!.goals ?? {}) as Record<string, string>;
 
       setForm({
-        artist_name: profile!.artist_name ?? '',
-        real_name: profile!.real_name ?? '',
-        location: profile!.location ?? '',
+        artist_name: profile!.artist_name ?? "",
+        real_name: profile!.real_name ?? "",
+        location: profile!.location ?? "",
         genre: profile!.genre ?? [],
-        bio: profile!.bio ?? '',
-        profile_photo_url: profile!.profile_photo_url ?? '',
+        bio: profile!.bio ?? "",
+        profile_photo_url: profile!.profile_photo_url ?? "",
         links: (links ?? []).map((l: any) => ({
           id: l.id,
           platform: l.platform,
@@ -106,126 +112,142 @@ export function EditProfile() {
           url: l.url,
         })),
         goals: {
-          primary_goal: rawGoals.primary_goal ?? '',
-          career_stage: rawGoals.career_stage ?? '',
-          release_timeline: rawGoals.release_timeline ?? '',
-          monthly_listeners_target: rawGoals.monthly_listeners_target ?? '',
+          primary_goal: rawGoals.primary_goal ?? "",
+          career_stage: rawGoals.career_stage ?? "",
+          release_timeline: rawGoals.release_timeline ?? "",
+          monthly_listeners_target: rawGoals.monthly_listeners_target ?? "",
         },
-      })
-      setLoading(false)
+      });
+      setLoading(false);
     }
 
-    load()
-  }, [user, profile])
+    load();
+  }, [user, profile]);
 
   // ── Field helpers ──────────────────────────────────────────────────────────
 
   function set<K extends keyof FormState>(key: K, value: FormState[K]) {
-    setForm((f) => ({ ...f, [key]: value }))
+    setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function setGoal(key: keyof FormState['goals'], value: string) {
-    setForm((f) => ({ ...f, goals: { ...f.goals, [key]: value } }))
+  function setGoal(key: keyof FormState["goals"], value: string) {
+    setForm((f) => ({ ...f, goals: { ...f.goals, [key]: value } }));
   }
 
   function toggleGenre(g: string) {
     const next = form.genre.includes(g)
       ? form.genre.filter((x) => x !== g)
-      : [...form.genre, g].slice(0, 3)
-    set('genre', next)
-    setErrors((e) => ({ ...e, genre: '' }))
+      : [...form.genre, g].slice(0, 3);
+    set("genre", next);
+    setErrors((e) => ({ ...e, genre: "" }));
   }
 
   // ── Links helpers ──────────────────────────────────────────────────────────
 
-  const presetPlatforms = PLATFORM_PRESETS.map((p) => p.platform)
+  const presetPlatforms = PLATFORM_PRESETS.map((p) => p.platform);
 
   function isPresetActive(platform: string) {
-    return form.links.some((l) => l.platform === platform)
+    return form.links.some((l) => l.platform === platform);
   }
 
   function togglePreset(platform: string) {
     if (isPresetActive(platform)) {
-      set('links', form.links.filter((l) => l.platform !== platform))
+      set(
+        "links",
+        form.links.filter((l) => l.platform !== platform),
+      );
     } else {
-      const preset = PLATFORM_PRESETS.find((p) => p.platform === platform)!
-      set('links', [...form.links, { platform, label: preset.label, url: '' }])
+      const preset = PLATFORM_PRESETS.find((p) => p.platform === platform)!;
+      set("links", [...form.links, { platform, label: preset.label, url: "" }]);
     }
   }
 
   function updatePresetUrl(platform: string, url: string) {
-    set('links', form.links.map((l) => l.platform === platform ? { ...l, url } : l))
+    set(
+      "links",
+      form.links.map((l) => (l.platform === platform ? { ...l, url } : l)),
+    );
   }
 
   function addCustomLink() {
-    set('links', [...form.links, { platform: 'custom', label: '', url: '' }])
+    set("links", [...form.links, { platform: "custom", label: "", url: "" }]);
   }
 
   function removeLink(index: number) {
-    set('links', form.links.filter((_, i) => i !== index))
+    set(
+      "links",
+      form.links.filter((_, i) => i !== index),
+    );
   }
 
-  function updateCustomLink(index: number, field: 'label' | 'url', value: string) {
-    set('links', form.links.map((l, i) => i === index ? { ...l, [field]: value } : l))
+  function updateCustomLink(
+    index: number,
+    field: "label" | "url",
+    value: string,
+  ) {
+    set(
+      "links",
+      form.links.map((l, i) => (i === index ? { ...l, [field]: value } : l)),
+    );
   }
 
   // ── Photo upload ───────────────────────────────────────────────────────────
 
   async function handlePhotoUpload(file: File) {
-    if (!user) return
-    setUploadingPhoto(true)
+    if (!user) return;
+    setUploadingPhoto(true);
 
-    const ext = file.name.split('.').pop()
-    const path = `${user.id}/profile.${ext}`
+    const ext = file.name.split(".").pop();
+    const path = `${user.id}/profile.${ext}`;
 
     const { error } = await supabase.storage
-      .from('profile-assets')
-      .upload(path, file, { upsert: true })
+      .from("profile-assets")
+      .upload(path, file, { upsert: true });
 
     if (error) {
-      setUploadingPhoto(false)
-      return
+      setUploadingPhoto(false);
+      return;
     }
 
     const { data: urlData } = supabase.storage
-      .from('profile-assets')
-      .getPublicUrl(path)
+      .from("profile-assets")
+      .getPublicUrl(path);
 
-    set('profile_photo_url', urlData.publicUrl)
-    setUploadingPhoto(false)
+    set("profile_photo_url", urlData.publicUrl);
+    setUploadingPhoto(false);
   }
 
   // ── Validate ───────────────────────────────────────────────────────────────
 
   function validate() {
-    const e: Record<string, string> = {}
-    if (!form.artist_name.trim()) e.artist_name = 'Artist name is required'
-    if (form.genre.length === 0) e.genre = 'Pick at least one genre'
-    return e
+    const e: Record<string, string> = {};
+    if (!form.artist_name.trim()) e.artist_name = "Artist name is required";
+    if (form.genre.length === 0) e.genre = "Pick at least one genre";
+    return e;
   }
 
   // ── Save ───────────────────────────────────────────────────────────────────
 
   async function handleSave() {
-    const e = validate()
+    const e = validate();
     if (Object.keys(e).length) {
-      setErrors(e)
+      setErrors(e);
       // Scroll to top so user sees the error
-      window.scrollTo({ top: 0, behavior: 'smooth' })
-      return
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
     }
 
-    if (!user) return
-    setSaving(true)
+    if (!user) return;
+    setSaving(true);
 
     const slug = form.artist_name
       .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "");
 
     // 1. Update profile
     await supabase
-      .from('profiles')
+      .from("profiles")
       .update({
         artist_name: form.artist_name,
         real_name: form.real_name || null,
@@ -237,14 +259,14 @@ export function EditProfile() {
         goals: form.goals,
         updated_at: new Date().toISOString(),
       })
-      .eq('id', user.id)
+      .eq("id", user.id);
 
     // 2. Replace all links — delete existing, re-insert current
-    await supabase.from('links').delete().eq('profile_id', user.id)
+    await supabase.from("links").delete().eq("profile_id", user.id);
 
-    const validLinks = form.links.filter((l) => l.url.trim())
+    const validLinks = form.links.filter((l) => l.url.trim());
     if (validLinks.length > 0) {
-      await supabase.from('links').insert(
+      await supabase.from("links").insert(
         validLinks.map((l, i) => ({
           profile_id: user.id,
           platform: l.platform,
@@ -253,15 +275,15 @@ export function EditProfile() {
           display_order: i,
           is_visible: true,
         })),
-      )
+      );
     }
 
     // 3. Refresh auth state so Dashboard reflects changes
-    await refreshProfile()
+    await refreshProfile();
 
-    setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
+    setSaving(false);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -271,11 +293,13 @@ export function EditProfile() {
       <div className="min-h-screen bg-[var(--color-black)] flex items-center justify-center">
         <div className="w-6 h-6 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
       </div>
-    )
+    );
   }
 
-  const presetLinks = form.links.filter((l) => presetPlatforms.includes(l.platform))
-  const customLinks = form.links.filter((l) => l.platform === 'custom')
+  const presetLinks = form.links.filter((l) =>
+    presetPlatforms.includes(l.platform),
+  );
+  const customLinks = form.links.filter((l) => l.platform === "custom");
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -301,8 +325,8 @@ export function EditProfile() {
             disabled={saving}
             className={`flex items-center gap-1.5 text-sm font-semibold transition-all ${
               saved
-                ? 'text-[var(--color-success)]'
-                : 'text-[var(--color-accent)] hover:opacity-80'
+                ? "text-[var(--color-success)]"
+                : "text-[var(--color-accent)] hover:opacity-80"
             } disabled:opacity-40`}
           >
             {saving ? (
@@ -313,14 +337,13 @@ export function EditProfile() {
                 Saved
               </>
             ) : (
-              'Save'
+              "Save"
             )}
           </button>
         </div>
       </div>
 
       <div className="px-5 pt-8 pb-24 max-w-lg mx-auto">
-
         {/* ── Profile photo ── */}
         <div className="flex flex-col items-center gap-3 mb-10">
           <button
@@ -351,7 +374,7 @@ export function EditProfile() {
             ) : null}
           </button>
           <p className="text-xs text-[var(--color-text-muted)]">
-            {form.profile_photo_url ? 'Tap to change photo' : 'Add a photo'}
+            {form.profile_photo_url ? "Tap to change photo" : "Add a photo"}
           </p>
           <input
             ref={fileRef}
@@ -359,8 +382,8 @@ export function EditProfile() {
             accept="image/jpeg,image/png,image/webp"
             className="hidden"
             onChange={(e) => {
-              const file = e.target.files?.[0]
-              if (file) handlePhotoUpload(file)
+              const file = e.target.files?.[0];
+              if (file) handlePhotoUpload(file);
             }}
           />
         </div>
@@ -373,8 +396,8 @@ export function EditProfile() {
             placeholder="e.g. KXNG Crooked"
             value={form.artist_name}
             onChange={(e) => {
-              set('artist_name', e.target.value)
-              setErrors((err) => ({ ...err, artist_name: '' }))
+              set("artist_name", e.target.value);
+              setErrors((err) => ({ ...err, artist_name: "" }));
             }}
             error={errors.artist_name}
           />
@@ -382,25 +405,27 @@ export function EditProfile() {
             label="Real name"
             placeholder="Optional"
             value={form.real_name}
-            onChange={(e) => set('real_name', e.target.value)}
+            onChange={(e) => set("real_name", e.target.value)}
             hint="Only visible to you"
           />
           <Input
             label="City / Location"
             placeholder="e.g. Los Angeles, CA"
             value={form.location}
-            onChange={(e) => set('location', e.target.value)}
+            onChange={(e) => set("location", e.target.value)}
           />
 
           {/* Genre chips */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-[var(--color-text-secondary)]">
-              Genre{' '}
-              <span className="text-[var(--color-text-muted)] font-normal">(up to 3)</span>
+              Genre{" "}
+              <span className="text-[var(--color-text-muted)] font-normal">
+                (up to 3)
+              </span>
             </p>
             <div className="flex flex-wrap gap-2">
               {GENRES.map((g) => {
-                const selected = form.genre.includes(g)
+                const selected = form.genre.includes(g);
                 return (
                   <button
                     key={g}
@@ -408,17 +433,19 @@ export function EditProfile() {
                     onClick={() => toggleGenre(g)}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                       selected
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]'
+                        ? "bg-[var(--color-accent)] text-white"
+                        : "bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]"
                     }`}
                   >
                     {g}
                   </button>
-                )
+                );
               })}
             </div>
             {errors.genre ? (
-              <p className="text-xs text-[var(--color-error)]">{errors.genre}</p>
+              <p className="text-xs text-[var(--color-error)]">
+                {errors.genre}
+              </p>
             ) : null}
           </div>
         </div>
@@ -431,7 +458,7 @@ export function EditProfile() {
           label="Bio"
           placeholder="Tell your story. Who are you as an artist? What drives your music?"
           value={form.bio}
-          onChange={(e) => set('bio', e.target.value)}
+          onChange={(e) => set("bio", e.target.value)}
           rows={6}
           hint="Appears on your artist page and EPK"
         />
@@ -441,7 +468,6 @@ export function EditProfile() {
         {/* ── Links ── */}
         <SectionLabel>Links</SectionLabel>
         <div className="flex flex-col gap-5">
-
           {/* Platform chips */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-[var(--color-text-secondary)]">
@@ -449,7 +475,7 @@ export function EditProfile() {
             </p>
             <div className="flex flex-wrap gap-2">
               {PLATFORM_PRESETS.map((p) => {
-                const active = isPresetActive(p.platform)
+                const active = isPresetActive(p.platform);
                 return (
                   <button
                     key={p.platform}
@@ -457,13 +483,13 @@ export function EditProfile() {
                     onClick={() => togglePreset(p.platform)}
                     className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
                       active
-                        ? 'bg-[var(--color-accent)] text-white'
-                        : 'bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]'
+                        ? "bg-[var(--color-accent)] text-white"
+                        : "bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-accent)]"
                     }`}
                   >
                     {p.label}
                   </button>
-                )
+                );
               })}
             </div>
           </div>
@@ -471,18 +497,22 @@ export function EditProfile() {
           {/* Preset URL inputs */}
           {presetLinks.length > 0 && (
             <div className="flex flex-col gap-4">
-              {presetLinks.map((link) => {
-                const preset = PLATFORM_PRESETS.find((p) => p.platform === link.platform)!
+              {presetLinks.map((link, i) => {
+                const preset = PLATFORM_PRESETS.find(
+                  (p) => p.platform === link.platform,
+                )!;
                 return (
                   <Input
-                    key={link.platform}
+                    key={link.id ?? `${link.platform}-${i}`}
                     label={preset.label}
                     type="url"
                     placeholder={preset.placeholder}
                     value={link.url}
-                    onChange={(e) => updatePresetUrl(link.platform, e.target.value)}
+                    onChange={(e) =>
+                      updatePresetUrl(link.platform, e.target.value)
+                    }
                   />
-                )
+                );
               })}
             </div>
           )}
@@ -490,22 +520,28 @@ export function EditProfile() {
           {/* Custom links */}
           {customLinks.length > 0 && (
             <div className="flex flex-col gap-4">
-              <p className="text-sm font-medium text-[var(--color-text-secondary)]">Custom</p>
+              <p className="text-sm font-medium text-[var(--color-text-secondary)]">
+                Custom
+              </p>
               {customLinks.map((link) => {
-                const actualIndex = form.links.indexOf(link)
+                const actualIndex = form.links.indexOf(link);
                 return (
                   <div key={actualIndex} className="flex gap-2 items-start">
                     <div className="flex-1 flex flex-col gap-2">
                       <Input
                         placeholder="Label (e.g. Website)"
                         value={link.label}
-                        onChange={(e) => updateCustomLink(actualIndex, 'label', e.target.value)}
+                        onChange={(e) =>
+                          updateCustomLink(actualIndex, "label", e.target.value)
+                        }
                       />
                       <Input
                         type="url"
                         placeholder="https://..."
                         value={link.url}
-                        onChange={(e) => updateCustomLink(actualIndex, 'url', e.target.value)}
+                        onChange={(e) =>
+                          updateCustomLink(actualIndex, "url", e.target.value)
+                        }
                       />
                     </div>
                     <button
@@ -516,7 +552,7 @@ export function EditProfile() {
                       <Trash2 size={15} />
                     </button>
                   </div>
-                )
+                );
               })}
             </div>
           )}
@@ -536,7 +572,6 @@ export function EditProfile() {
         {/* ── Goals ── */}
         <SectionLabel>Goals</SectionLabel>
         <div className="flex flex-col gap-6">
-
           {/* Primary goal */}
           <div className="flex flex-col gap-2">
             <p className="text-sm font-medium text-[var(--color-text-secondary)]">
@@ -547,11 +582,11 @@ export function EditProfile() {
                 <button
                   key={g}
                   type="button"
-                  onClick={() => setGoal('primary_goal', g)}
+                  onClick={() => setGoal("primary_goal", g)}
                   className={`text-left px-4 py-3 rounded-xl text-sm font-medium transition-all ${
                     form.goals.primary_goal === g
-                      ? 'bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]'
-                      : 'bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                      ? "bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]"
+                      : "bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]"
                   }`}
                 >
                   {g}
@@ -570,11 +605,11 @@ export function EditProfile() {
                 <button
                   key={s.value}
                   type="button"
-                  onClick={() => setGoal('career_stage', s.value)}
+                  onClick={() => setGoal("career_stage", s.value)}
                   className={`text-left px-3 py-3 rounded-xl text-sm font-medium transition-all ${
                     form.goals.career_stage === s.value
-                      ? 'bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]'
-                      : 'bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                      ? "bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]"
+                      : "bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]"
                   }`}
                 >
                   {s.label}
@@ -593,11 +628,11 @@ export function EditProfile() {
                 <button
                   key={t.value}
                   type="button"
-                  onClick={() => setGoal('release_timeline', t.value)}
+                  onClick={() => setGoal("release_timeline", t.value)}
                   className={`text-left px-3 py-3 rounded-xl text-sm font-medium transition-all ${
                     form.goals.release_timeline === t.value
-                      ? 'bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]'
-                      : 'bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]'
+                      ? "bg-[var(--color-accent-subtle)] border border-[var(--color-accent)] text-[var(--color-text-primary)]"
+                      : "bg-[var(--color-surface-raised)] border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)]"
                   }`}
                 >
                   {t.label}
@@ -611,7 +646,9 @@ export function EditProfile() {
             label="Monthly listeners goal"
             placeholder="e.g. 50,000"
             value={form.goals.monthly_listeners_target}
-            onChange={(e) => setGoal('monthly_listeners_target', e.target.value)}
+            onChange={(e) =>
+              setGoal("monthly_listeners_target", e.target.value)
+            }
             hint="Helps your manager set benchmarks"
           />
         </div>
@@ -630,11 +667,11 @@ export function EditProfile() {
                 Saved
               </span>
             ) : (
-              'Save changes'
+              "Save changes"
             )}
           </Button>
         </div>
       </div>
     </div>
-  )
+  );
 }
