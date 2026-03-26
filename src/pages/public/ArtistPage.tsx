@@ -15,16 +15,48 @@ import type { Profile, Link } from "../../types/database";
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 type VisitSource = "tiktok" | "instagram" | "youtube" | "direct";
+type LinkSection = "streaming" | "social";
+type PreferredPlatform =
+  | "spotify"
+  | "apple_music"
+  | "youtube"
+  | "youtube_music"
+  | "soundcloud";
+type ClickEventType =
+  | "click_spotify"
+  | "click_apple_music"
+  | "click_youtube"
+  | "click_soundcloud"
+  | "click_instagram"
+  | "click_tiktok"
+  | "click_twitter"
+  | "click_facebook"
+  | "click_custom_link";
 
 const TRACKING_ENDPOINT = "/functions/v1/track-page-event";
 const VISITOR_TOKEN_KEY = "sw-assist-visitor-token";
 const ACTIVE_VISIT_KEY_PREFIX = "sw-assist-active-visit:";
+const PAGE_VIEW_SENT_KEY_PREFIX = "sw-assist-page-view-sent:";
+const PREFERRED_PLATFORM_KEY = "sw-assist-preferred-platform";
 const VISIT_CACHE_TTL_MS = 15_000;
 const inFlightVisits = new Map<string, Promise<CreateVisitResult | null>>();
 
 interface CreateVisitResult {
   visitId: string;
   reused: boolean;
+}
+
+interface EventMetadata {
+  source_param?: VisitSource;
+  has_streaming_links?: boolean;
+  has_social_links?: boolean;
+  visible_link_count?: number;
+  link_platform?: string;
+  link_label?: string;
+  link_position?: number;
+  section?: LinkSection;
+  destination_domain?: string;
+  is_primary?: boolean;
 }
 
 function getTrackingHeaders() {
@@ -70,6 +102,82 @@ function getVisitorToken() {
     `visitor-${Math.random().toString(36).slice(2, 10)}`;
   window.localStorage.setItem(VISITOR_TOKEN_KEY, token);
   return token;
+}
+
+function getDestinationDomain(url: string) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+function getClickEventType(platform: string): ClickEventType {
+  switch (platform) {
+    case "spotify":
+      return "click_spotify";
+    case "apple_music":
+      return "click_apple_music";
+    case "youtube":
+    case "youtube_music":
+      return "click_youtube";
+    case "soundcloud":
+      return "click_soundcloud";
+    case "instagram":
+      return "click_instagram";
+    case "tiktok":
+      return "click_tiktok";
+    case "twitter":
+      return "click_twitter";
+    case "facebook":
+      return "click_facebook";
+    default:
+      return "click_custom_link";
+  }
+}
+
+function isPreferredPlatform(value: string | null): value is PreferredPlatform {
+  return (
+    value === "spotify" ||
+    value === "apple_music" ||
+    value === "youtube" ||
+    value === "youtube_music" ||
+    value === "soundcloud"
+  );
+}
+
+function readPreferredPlatform(): PreferredPlatform | null {
+  const value = window.localStorage.getItem(PREFERRED_PLATFORM_KEY);
+  return isPreferredPlatform(value) ? value : null;
+}
+
+function savePreferredPlatform(platform: PreferredPlatform) {
+  window.localStorage.setItem(PREFERRED_PLATFORM_KEY, platform);
+}
+
+function reorderStreamingLinks(
+  links: Link[],
+  preferredPlatform: PreferredPlatform | null,
+) {
+  if (!preferredPlatform) return links;
+
+  const preferredIndex = links.findIndex((link) => {
+    if (preferredPlatform === "youtube") {
+      return (
+        link.platform === "youtube" || link.platform === "youtube_music"
+      );
+    }
+    return link.platform === preferredPlatform;
+  });
+
+  if (preferredIndex <= 0) return links;
+
+  const preferredLink = links[preferredIndex];
+  return [
+    preferredLink,
+    ...links.slice(0, preferredIndex),
+    ...links.slice(preferredIndex + 1),
+  ];
 }
 
 async function createVisit(profileId: string): Promise<CreateVisitResult | null> {
@@ -139,6 +247,7 @@ function trackEvent(
   profileId: string,
   visitId: string,
   eventType: string,
+  metadata?: EventMetadata,
   linkId?: string,
 ) {
   const tracking = getTrackingHeaders();
@@ -154,10 +263,45 @@ function trackEvent(
       profile_id: profileId,
       event_type: eventType,
       link_id: linkId ?? null,
+      metadata: metadata ?? null,
     }),
   }).catch(() => {
     // fire-and-forget — never block the user
   });
+}
+
+function updateVisitPreference(
+  profileId: string,
+  visitId: string,
+  preferredPlatform: PreferredPlatform,
+) {
+  const tracking = getTrackingHeaders();
+  if (!tracking) return;
+
+  fetch(tracking.url, {
+    method: "POST",
+    headers: tracking.headers,
+    keepalive: true,
+    body: JSON.stringify({
+      operation: "update_visit_preference",
+      visit_id: visitId,
+      profile_id: profileId,
+      preferred_platform: preferredPlatform,
+    }),
+  }).catch(() => {
+    // fire-and-forget — never block the user
+  });
+}
+
+function markPageViewSent(visitId: string) {
+  window.sessionStorage.setItem(`${PAGE_VIEW_SENT_KEY_PREFIX}${visitId}`, "1");
+}
+
+function hasSentPageView(visitId: string) {
+  return (
+    window.sessionStorage.getItem(`${PAGE_VIEW_SENT_KEY_PREFIX}${visitId}`) ===
+    "1"
+  );
 }
 
 function linkLabel(link: Link): string {
@@ -265,22 +409,27 @@ export function ArtistPage() {
       const visit = await createVisit(profileData.id);
       if (visit) {
         visitIdRef.current = visit.visitId;
-        if (!visit.reused) {
-          trackEvent(profileData.id, visit.visitId, "page_view");
+        if (!hasSentPageView(visit.visitId)) {
+          markPageViewSent(visit.visitId);
+          trackEvent(
+            profileData.id,
+            visit.visitId,
+            "page_view",
+            {
+              source_param: readVisitSource(),
+              has_streaming_links:
+                (linksData ?? []).some((l) => !SOCIAL_PLATFORMS.has(l.platform)),
+              has_social_links:
+                (linksData ?? []).some((l) => SOCIAL_PLATFORMS.has(l.platform)),
+              visible_link_count: (linksData ?? []).length,
+            },
+          );
         }
       }
     }
 
     load();
   }, [slug]);
-
-  function handleLinkPress(link: Link) {
-    const visitId = visitIdRef.current;
-    if (visitId) {
-      trackEvent(profile!.id, visitId, `click_${link.platform}`, link.id);
-    }
-    window.open(link.url, "_blank", "noopener,noreferrer");
-  }
 
   // ── Gradient style ─────────────────────────────────────────────────────────
 
@@ -316,6 +465,79 @@ export function ArtistPage() {
 
   const streamingLinks = links.filter((l) => !SOCIAL_PLATFORMS.has(l.platform));
   const socialLinks = links.filter((l) => SOCIAL_PLATFORMS.has(l.platform));
+  const orderedStreamingLinks = reorderStreamingLinks(
+    streamingLinks,
+    readPreferredPlatform(),
+  );
+  const sourceParam = readVisitSource();
+
+  function trackArtistPageEvent(
+    eventType: string,
+    options?: {
+      link?: Link;
+      section?: LinkSection;
+      position?: number;
+      metadata?: EventMetadata;
+    },
+  ) {
+    if (!profile) return;
+
+    const visitId = visitIdRef.current;
+    if (!visitId) return;
+
+    const metadata: EventMetadata = {
+      source_param: sourceParam,
+      ...options?.metadata,
+    };
+
+    if (
+      options?.link &&
+      options.section !== undefined &&
+      options.position !== undefined
+    ) {
+      metadata.link_platform = options.link.platform;
+      metadata.link_label = linkLabel(options.link);
+      metadata.link_position = options.position;
+      metadata.section = options.section;
+      metadata.destination_domain =
+        getDestinationDomain(options.link.url) ?? undefined;
+      metadata.is_primary = false;
+    }
+
+    trackEvent(profile.id, visitId, eventType, metadata, options?.link?.id);
+  }
+
+  function handleLinkPress(
+    link: Link,
+    section: LinkSection,
+    position: number,
+  ) {
+    const visitId = visitIdRef.current;
+
+    if (section === "streaming") {
+      const preferredPlatform =
+        link.platform === "youtube_music"
+          ? "youtube"
+          : isPreferredPlatform(link.platform)
+            ? link.platform
+            : null;
+
+      if (preferredPlatform) {
+        savePreferredPlatform(preferredPlatform);
+        if (profile && visitId) {
+          updateVisitPreference(profile.id, visitId, preferredPlatform);
+        }
+      }
+    }
+
+    trackArtistPageEvent(getClickEventType(link.platform), {
+      link,
+      section,
+      position,
+    });
+
+    window.open(link.url, "_blank", "noopener,noreferrer");
+  }
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -387,13 +609,13 @@ export function ArtistPage() {
             </div>
 
             {/* Streaming / music links */}
-            {streamingLinks.length > 0 && (
+            {orderedStreamingLinks.length > 0 && (
               <div className="w-full flex flex-col gap-3">
-                {streamingLinks.map((link) => (
+                {orderedStreamingLinks.map((link, index) => (
                   <LinkButton
                     key={link.id}
                     link={link}
-                    onPress={() => handleLinkPress(link)}
+                    onPress={() => handleLinkPress(link, "streaming", index)}
                   />
                 ))}
               </div>
@@ -402,10 +624,10 @@ export function ArtistPage() {
             {/* Social media icon row */}
             {socialLinks.length > 0 && (
               <div className="flex gap-3">
-                {socialLinks.map((link) => (
+                {socialLinks.map((link, index) => (
                   <button
                     key={link.id}
-                    onClick={() => handleLinkPress(link)}
+                    onClick={() => handleLinkPress(link, "social", index)}
                     aria-label={linkLabel(link)}
                     className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white transition-all duration-150"
                   >

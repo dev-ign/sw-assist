@@ -101,6 +101,32 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    if (operation === "update_visit_preference") {
+      const visitId = body.visit_id as string | undefined;
+      const preferredPlatform = body.preferred_platform as string | undefined;
+
+      if (!visitId || !preferredPlatform) {
+        return new Response(
+          JSON.stringify({ error: "Missing required preference fields" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+
+      await supabase
+        .from("visits")
+        .update({ preferred_platform: preferredPlatform })
+        .eq("id", visitId)
+        .eq("profile_id", profileId);
+
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     return new Response(JSON.stringify({ error: "Invalid operation" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
