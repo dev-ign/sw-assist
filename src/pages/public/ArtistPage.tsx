@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   Instagram,
@@ -14,22 +14,123 @@ import type { Profile, Link } from "../../types/database";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function trackEvent(
-  profileId: string,
-  eventType: "page_view" | "link_click",
-  linkId?: string,
-) {
+type VisitSource = "tiktok" | "instagram" | "youtube" | "direct";
+
+const TRACKING_ENDPOINT = "/functions/v1/track-page-event";
+const VISITOR_TOKEN_KEY = "sw-assist-visitor-token";
+const ACTIVE_VISIT_KEY_PREFIX = "sw-assist-active-visit:";
+
+function getTrackingHeaders() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
   const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-  if (!supabaseUrl) return;
+  if (!supabaseUrl || !supabaseKey) return null;
 
-  fetch(`${supabaseUrl}/functions/v1/track-page-event`, {
-    method: "POST",
+  return {
+    url: `${supabaseUrl}${TRACKING_ENDPOINT}`,
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${supabaseKey}`,
     },
+  };
+}
+
+function readVisitSource(): VisitSource {
+  const raw = new URLSearchParams(window.location.search).get("source");
+  if (!raw) return "direct";
+
+  const normalized = raw.trim().toLowerCase();
+
+  switch (normalized) {
+    case "tiktok":
+      return "tiktok";
+    case "ig":
+    case "instagram":
+      return "instagram";
+    case "yt":
+    case "youtube":
+      return "youtube";
+    default:
+      return "direct";
+  }
+}
+
+function getVisitorToken() {
+  const existing = window.localStorage.getItem(VISITOR_TOKEN_KEY);
+  if (existing) return existing;
+
+  const token =
+    window.crypto?.randomUUID?.() ??
+    `visitor-${Math.random().toString(36).slice(2, 10)}`;
+  window.localStorage.setItem(VISITOR_TOKEN_KEY, token);
+  return token;
+}
+
+async function createVisit(profileId: string) {
+  const pageKey = `${ACTIVE_VISIT_KEY_PREFIX}${window.location.pathname}${window.location.search}`;
+  const cachedVisit = window.sessionStorage.getItem(pageKey);
+
+  if (cachedVisit) {
+    try {
+      const parsed = JSON.parse(cachedVisit) as {
+        id: string;
+        createdAt: number;
+      };
+      if (Date.now() - parsed.createdAt < 5000) {
+        return { visitId: parsed.id, reused: true };
+      }
+    } catch {
+      window.sessionStorage.removeItem(pageKey);
+    }
+  }
+
+  const tracking = getTrackingHeaders();
+  if (!tracking) return null;
+
+  try {
+    const response = await fetch(tracking.url, {
+      method: "POST",
+      headers: tracking.headers,
+      body: JSON.stringify({
+        operation: "create_visit",
+        profile_id: profileId,
+        source: readVisitSource(),
+        visitor_token: getVisitorToken(),
+      }),
+    });
+
+    if (!response.ok) return null;
+
+    const json = (await response.json()) as { visit_id?: string };
+    const visitId = json.visit_id ?? null;
+    if (!visitId) return null;
+
+    window.sessionStorage.setItem(
+      pageKey,
+      JSON.stringify({ id: visitId, createdAt: Date.now() }),
+    );
+
+    return { visitId, reused: false };
+  } catch {
+    return null;
+  }
+}
+
+function trackEvent(
+  profileId: string,
+  visitId: string,
+  eventType: string,
+  linkId?: string,
+) {
+  const tracking = getTrackingHeaders();
+  if (!tracking) return;
+
+  fetch(tracking.url, {
+    method: "POST",
+    headers: tracking.headers,
+    keepalive: true,
     body: JSON.stringify({
+      operation: "track_event",
+      visit_id: visitId,
       profile_id: profileId,
       event_type: eventType,
       link_id: linkId ?? null,
@@ -105,6 +206,7 @@ export function ArtistPage() {
   const [links, setLinks] = useState<Link[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const visitIdRef = useRef<string | null>(null);
 
   const { colors } = useColorExtractor(profile?.banner_photo_url);
 
@@ -140,12 +242,25 @@ export function ArtistPage() {
       setLinks(linksData ?? []);
       setLoading(false);
 
-      // Track page view
-      trackEvent(profileData.id, "page_view");
+      const visit = await createVisit(profileData.id);
+      if (visit) {
+        visitIdRef.current = visit.visitId;
+        if (!visit.reused) {
+          trackEvent(profileData.id, visit.visitId, "page_view");
+        }
+      }
     }
 
     load();
   }, [slug]);
+
+  function handleLinkPress(link: Link) {
+    const visitId = visitIdRef.current;
+    if (visitId) {
+      trackEvent(profile!.id, visitId, `click_${link.platform}`, link.id);
+    }
+    window.open(link.url, "_blank", "noopener,noreferrer");
+  }
 
   // ── Gradient style ─────────────────────────────────────────────────────────
 
@@ -258,10 +373,7 @@ export function ArtistPage() {
                   <LinkButton
                     key={link.id}
                     link={link}
-                    onPress={() => {
-                      trackEvent(profile.id, "link_click", link.id);
-                      window.open(link.url, "_blank", "noopener,noreferrer");
-                    }}
+                    onPress={() => handleLinkPress(link)}
                   />
                 ))}
               </div>
@@ -273,10 +385,7 @@ export function ArtistPage() {
                 {socialLinks.map((link) => (
                   <button
                     key={link.id}
-                    onClick={() => {
-                      trackEvent(profile.id, "link_click", link.id);
-                      window.open(link.url, "_blank", "noopener,noreferrer");
-                    }}
+                    onClick={() => handleLinkPress(link)}
                     aria-label={linkLabel(link)}
                     className="w-10 h-10 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 backdrop-blur-sm border border-white/20 flex items-center justify-center text-white transition-all duration-150"
                   >

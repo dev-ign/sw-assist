@@ -494,10 +494,12 @@ export function PageEditor() {
     <div className="min-h-screen bg-black">
       {/* Sticky header */}
       <div className="sticky top-0 z-10 bg-black/90 backdrop-blur-md border-b border-border px-5 pt-12 pb-4 flex items-center justify-between">
-        <h1 className="text-lg font-bold text-text-primary">
-          {slug ? slugToTitle(slug) : "Your"}{" "}
-          <span className="text-xs text-text-muted">landing page editor</span>
-        </h1>
+        <div>
+          <h1 className="text-lg font-bold text-text-primary">
+            {slug ? slugToTitle(slug) : "Your"}
+          </h1>
+          <p className="text-xs text-text-muted">Page Editor</p>
+        </div>
         <div className="flex items-center gap-2">
           {profile?.slug && slug && (
             <a

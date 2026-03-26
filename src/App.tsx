@@ -7,7 +7,9 @@ import { Onboarding } from "./pages/onboarding/Onboarding";
 import { Dashboard } from "./pages/dashboard/Dashboard";
 import { EditProfile } from "./pages/profile/EditProfile";
 import { PageEditor } from "./pages/artist-page/PageEditor";
+import { EpkEditor } from "./pages/epk/EpkEditor";
 import { ArtistPage } from "./pages/public/ArtistPage";
+import { EpkPage } from "./pages/public/EpkPage";
 
 function Spinner() {
   return (
@@ -74,10 +76,13 @@ function AppRoutes() {
       >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/page" element={<PageEditor />} />
-        <Route path="/epk" element={<ComingSoon label="EPK" />} />
+        <Route path="/epk" element={<EpkEditor />} />
         <Route path="/analytics" element={<ComingSoon label="Analytics" />} />
         <Route path="/profile/edit" element={<EditProfile />} />
       </Route>
+
+      {/* ── Public EPK page (must come before /:artistSlug/:pageSlug) ── */}
+      <Route path="/:artistSlug/:pageSlug/epk" element={<EpkPage />} />
 
       {/* ── Public artist page (no auth) ── */}
       <Route path="/:artistSlug/:pageSlug" element={<ArtistPage />} />

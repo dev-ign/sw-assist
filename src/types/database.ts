@@ -89,6 +89,28 @@ export interface AiBriefing {
   created_at: string
 }
 
+export interface Visit {
+  id: string
+  profile_id: string
+  link_id: string | null
+  source: 'tiktok' | 'instagram' | 'youtube' | 'direct'
+  device: 'ios' | 'android' | 'desktop'
+  referrer: string | null
+  preferred_platform: string | null
+  visitor_token: string | null
+  created_at: string
+}
+
+export interface Event {
+  id: string
+  visit_id: string
+  profile_id: string
+  link_id: string | null
+  event_type: string
+  metadata: Record<string, unknown> | null
+  created_at: string
+}
+
 // Supabase Database type map
 // Relationships array is required by the Supabase client generics
 export interface Database {
@@ -128,6 +150,18 @@ export interface Database {
         Row: AiBriefing
         Insert: Omit<AiBriefing, 'id' | 'created_at'>
         Update: Partial<Omit<AiBriefing, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      visits: {
+        Row: Visit
+        Insert: Omit<Visit, 'id' | 'created_at' | 'device' | 'referrer'>
+        Update: Partial<Omit<Visit, 'id' | 'created_at'>>
+        Relationships: []
+      }
+      events: {
+        Row: Event
+        Insert: Omit<Event, 'id' | 'created_at'>
+        Update: Partial<Omit<Event, 'id' | 'created_at'>>
         Relationships: []
       }
     }
