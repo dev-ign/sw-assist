@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
 import { Textarea } from "../../components/ui/Textarea";
+import type { Link as DbLink } from "../../types/database";
 import {
   GENRES,
   PLATFORM_PRESETS,
@@ -105,7 +106,7 @@ export function EditProfile() {
         genre: profile!.genre ?? [],
         bio: profile!.bio ?? "",
         profile_photo_url: profile!.profile_photo_url ?? "",
-        links: (links ?? []).map((l: any) => ({
+        links: (links ?? []).map((l: DbLink) => ({
           id: l.id,
           platform: l.platform,
           label: l.label,

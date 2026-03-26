@@ -18,24 +18,6 @@ export function useAuth() {
     loading: true,
   })
 
-  useEffect(() => {
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setState((s) => ({ ...s, session, user: session?.user ?? null }))
-      if (session?.user) fetchProfile(session.user.id)
-      else setState((s) => ({ ...s, loading: false }))
-    })
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setState((s) => ({ ...s, session, user: session?.user ?? null }))
-      if (session?.user) fetchProfile(session.user.id)
-      else setState((s) => ({ ...s, profile: null, loading: false }))
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
-
   async function fetchProfile(userId: string) {
     const { data } = await supabase
       .from('profiles')
@@ -60,6 +42,24 @@ export function useAuth() {
   async function signOut() {
     await supabase.auth.signOut()
   }
+
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setState((s) => ({ ...s, session, user: session?.user ?? null }))
+      if (session?.user) fetchProfile(session.user.id)
+      else setState((s) => ({ ...s, loading: false }))
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setState((s) => ({ ...s, session, user: session?.user ?? null }))
+      if (session?.user) fetchProfile(session.user.id)
+      else setState((s) => ({ ...s, profile: null, loading: false }))
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
 
   return { ...state, signOut, refreshProfile }
 }

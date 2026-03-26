@@ -19,6 +19,13 @@ type VisitSource = "tiktok" | "instagram" | "youtube" | "direct";
 const TRACKING_ENDPOINT = "/functions/v1/track-page-event";
 const VISITOR_TOKEN_KEY = "sw-assist-visitor-token";
 const ACTIVE_VISIT_KEY_PREFIX = "sw-assist-active-visit:";
+const VISIT_CACHE_TTL_MS = 15_000;
+const inFlightVisits = new Map<string, Promise<CreateVisitResult | null>>();
+
+interface CreateVisitResult {
+  visitId: string;
+  reused: boolean;
+}
 
 function getTrackingHeaders() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
@@ -65,7 +72,7 @@ function getVisitorToken() {
   return token;
 }
 
-async function createVisit(profileId: string) {
+async function createVisit(profileId: string): Promise<CreateVisitResult | null> {
   const pageKey = `${ACTIVE_VISIT_KEY_PREFIX}${window.location.pathname}${window.location.search}`;
   const cachedVisit = window.sessionStorage.getItem(pageKey);
 
@@ -75,44 +82,57 @@ async function createVisit(profileId: string) {
         id: string;
         createdAt: number;
       };
-      if (Date.now() - parsed.createdAt < 5000) {
+      if (Date.now() - parsed.createdAt < VISIT_CACHE_TTL_MS) {
         return { visitId: parsed.id, reused: true };
       }
+      window.sessionStorage.removeItem(pageKey);
     } catch {
       window.sessionStorage.removeItem(pageKey);
     }
   }
 
+  const existingRequest = inFlightVisits.get(pageKey);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
   const tracking = getTrackingHeaders();
   if (!tracking) return null;
 
-  try {
-    const response = await fetch(tracking.url, {
-      method: "POST",
-      headers: tracking.headers,
-      body: JSON.stringify({
-        operation: "create_visit",
-        profile_id: profileId,
-        source: readVisitSource(),
-        visitor_token: getVisitorToken(),
-      }),
-    });
+  const request = (async () => {
+    try {
+      const response = await fetch(tracking.url, {
+        method: "POST",
+        headers: tracking.headers,
+        body: JSON.stringify({
+          operation: "create_visit",
+          profile_id: profileId,
+          source: readVisitSource(),
+          visitor_token: getVisitorToken(),
+        }),
+      });
 
-    if (!response.ok) return null;
+      if (!response.ok) return null;
 
-    const json = (await response.json()) as { visit_id?: string };
-    const visitId = json.visit_id ?? null;
-    if (!visitId) return null;
+      const json = (await response.json()) as { visit_id?: string };
+      const visitId = json.visit_id ?? null;
+      if (!visitId) return null;
 
-    window.sessionStorage.setItem(
-      pageKey,
-      JSON.stringify({ id: visitId, createdAt: Date.now() }),
-    );
+      window.sessionStorage.setItem(
+        pageKey,
+        JSON.stringify({ id: visitId, createdAt: Date.now() }),
+      );
 
-    return { visitId, reused: false };
-  } catch {
-    return null;
-  }
+      return { visitId, reused: false };
+    } catch {
+      return null;
+    } finally {
+      inFlightVisits.delete(pageKey);
+    }
+  })();
+
+  inFlightVisits.set(pageKey, request);
+  return request;
 }
 
 function trackEvent(
